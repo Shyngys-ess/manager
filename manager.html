@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Задачи</title>
+<style>
+body{font-family:Arial;margin:15px;background:#f9f9f9}
+.wrap{max-width:900px;margin:auto;background:#fff;padding:15px;border-radius:8px;box-shadow:0 1px 8px #0002}
+h1{font-size:1.5rem;margin:0 0 10px}
+.stats{padding:8px;background:#e8f0fe;border-radius:6px;margin:10px 0}
+.form,.ctrl{background:#f0f4f8;padding:12px;border-radius:6px;margin:12px 0}
+input,select{padding:8px;margin:4px 4px 4px 0;width:calc(50% - 8px);border:1px solid #ccc;border-radius:4px}
+button{padding:8px 14px;border:none;border-radius:4px;cursor:pointer;margin:6px 6px 0 0}
+.save{background:#1e88e5;color:#fff}
+.reset{background:#78909c;color:#fff}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px;text-align:left;border-bottom:1px solid #eee}
+th{background:#f5f5f5}
+.high{color:#e53935;font-weight:bold}
+.med{color:#fb8c00}
+.low{color:#43a047}
+.err{color:#e53935;font-size:0.9em}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<h1>Задачи студента</h1>
+
+<div class="stats" id=s></div>
+
+<div class="form">
+  <input id=t placeholder="Название задачи">
+  <input id=sub placeholder="Предмет">
+  <input id=pr type=number min=1 max=10 value=5>
+  <select id=st>
+    <option value=w>В работе</option>
+    <option value=d>Сделано</option>
+    <option value=p>Отложено</option>
+  </select>
+  <div>
+    <button class=save onclick=save()>Сохранить</button>
+    <button class=reset onclick=reset()>Очистить</button>
+    <span class=err id=e></span>
+  </div>
+</div>
+
+<div class=ctrl>
+  <input id=q placeholder="поиск..." oninput=render()>
+  <select id=f onchange=render()>
+    <option value="">все</option>
+    <option value=w>в работе</option>
+    <option value=d>сделано</option>
+    <option value=p>отложено</option>
+  </select>
+  <select id=o onchange=render()>
+    <option value="">без сортировки</option>
+    <option value=↑>приоритет ↑</option>
+    <option value=↓>приоритет ↓</option>
+  </select>
+</div>
+
+<table>
+<thead><tr><th>#</th><th>Задача</th><th>Предмет</th><th>Приор</th><th>Статус</th><th></th></tr></thead>
+<tbody id=tb></tbody>
+</table>
+</div>
+
+<script>
+let t=JSON.parse(localStorage.getItem('ts')||'[]'),e=null
+
+function save(){
+  let n=document.getElementById('t').value.trim()
+  if(!n){document.getElementById('e').textContent='Введите задачу';return}
+  let p=+document.getElementById('pr').value
+  if(p<1||p>10||isNaN(p)){document.getElementById('e').textContent='1–10';return}
+  document.getElementById('e').textContent=''
+
+  let item={i:e||Date.now(),n, s:document.getElementById('sub').value.trim()||'-', p, st:document.getElementById('st').value}
+
+  if(e){
+    let idx=t.findIndex(x=>x.i===e)
+    if(idx>-1)t[idx]=item
+  }else t.push(item)
+
+  localStorage.setItem('ts',JSON.stringify(t))
+  e=null
+  reset()
+  render()
+}
+
+function reset(){
+  document.getElementById('t').value=''
+  document.getElementById('sub').value=''
+  document.getElementById('pr').value=5
+  document.getElementById('st').value='w'
+  document.getElementById('e').textContent=''
+  e=null
+}
+
+function render(){
+  let q=document.getElementById('q').value.toLowerCase().trim()
+  let f=document.getElementById('f').value
+  let o=document.getElementById('o').value
+
+  let l=t.filter(x=>{
+    if(q&&!x.n.toLowerCase().includes(q))return false
+    if(f&&x.st!==f)return false
+    return true
+  })
+
+  if(o==='↑')l.sort((a,b)=>a.p-b.p)
+  if(o==='↓')l.sort((a,b)=>b.p-a.p)
+
+  let tb=document.getElementById('tb')
+  tb.innerHTML=''
+
+  l.forEach((x,i)=>{
+    let c=x.p>=8?'high':x.p>=5?'med':'low'
+    let txt={w:'в работе',d:'сделано',p:'отложено'}[x.st]
+    tb.innerHTML+=`<tr><td>${i+1}</td><td>${x.n}</td><td>${x.s}</td><td class="${c}">${x.p}</td><td>${txt}</td><td><button onclick="ed(${x.i})">✎</button><button onclick="rm(${x.i})">×</button></td></tr>`
+  })
+
+  let n=t.length,av=n?(t.reduce((a,x)=>a+x.p,0)/n).toFixed(1):'0.0'
+  let c={w:0,d:0,p:0}
+  t.forEach(x=>c[x.st]++)
+  document.getElementById('s').innerHTML=`Всего: <b>${n}</b> • ср. приоритет: <b>${av}</b><br>В работе: <b>${c.w}</b> • Сделано: <b>${c.d}</b> • Отложено: <b>${c.p}</b>`
+}
+
+window.ed=id=>{
+  let x=t.find(x=>x.i===id)
+  if(!x)return
+  e=id
+  document.getElementById('t').value=x.n
+  document.getElementById('sub').value=x.s==='-'?'':x.s
+  document.getElementById('pr').value=x.p
+  document.getElementById('st').value=x.st
+}
+
+window.rm=id=>{
+  if(!confirm('Удалить?'))return
+  t=t.filter(x=>x.i!==id)
+  if(e===id)reset()
+  localStorage.setItem('ts',JSON.stringify(t))
+  render()
+}
+
+render()
+</script>
+</body>
+</html>
